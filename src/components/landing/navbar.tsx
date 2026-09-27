@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import { navLinks } from "@/data/landing";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
+import { appUrl } from "@/lib/domains";
 
 export function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
@@ -54,6 +55,9 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <a href={appUrl("/login")} className="hidden rounded-lg px-3 py-2 text-ui text-muted hover:bg-surface hover:text-ink sm:inline-block">
+            Masuk
+          </a>
           <ButtonLink href="#harga" className="hidden sm:inline-flex">
             Mulai belajar
           </ButtonLink>
@@ -86,6 +90,9 @@ export function Navbar() {
                 </li>
               ))}
             </ul>
+            <a href={appUrl("/login")} className="block rounded-lg px-3 py-3 text-ui text-ink hover:bg-surface">
+              Masuk
+            </a>
             <ButtonLink href="#harga" onClick={() => setOpen(false)} className="mt-3 w-full">
               Mulai belajar
             </ButtonLink>

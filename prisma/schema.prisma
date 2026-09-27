@@ -1,0 +1,165 @@
+// Skema database LearnHub
+// Dokumentasi: https://www.prisma.io/docs/orm/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Pengguna aplikasi. Dibuat otomatis saat pembayaran pertama berhasil.
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  phone        String?
+  createdAt    DateTime      @default(now())
+  orders       Order[]
+  entitlements Entitlement[]
+  sessions     Session[]
+  loginTokens  LoginToken[]
+}
+
+enum PlanId {
+  bundle
+  single
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+/// Satu kali percobaan pembelian (dari form checkout).
+model Order {
+  id                 String      @id @default(cuid())
+  plan               PlanId
+  /// Bahasa yang dibeli. Bundle = semua, single = satu.
+  languages          String[]
+  amount             Int
+  status             OrderStatus @default(PENDING)
+  customerName       String
+  customerEmail      String
+  customerPhone      String
+  /// Referensi transaksi di sisi payment gateway (Midtrans order_id, Xendit invoice id, dst.)
+  providerRef        String?     @unique
+  /// Hash SHA-256 dari secret di cookie browser pembeli — hanya browser itu yang boleh auto-login setelah bayar.
+  checkoutSecretHash String
+  /// Sudah dipakai untuk auto-login? (sekali pakai)
+  handoffUsedAt      DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime    @default(now())
+  userId             String?
+  user               User?       @relation(fields: [userId], references: [id])
+
+  @@index([customerEmail])
+}
+
+/// Hak akses ke bahasa tertentu. Inilah yang dicek untuk membuka dashboard.
+model Entitlement {
+  id        String   @id @default(cuid())
+  userId    String
+  language  String
+  orderId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, language])
+}
+
+/// Sesi login di app subdomain. Cookie hanya menyimpan token acak; di DB disimpan hash-nya.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Token sekali pakai untuk magic link & perpindahan dari checkout ke app.
+model LoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────
+// ADMIN — sengaja dipisah total dari User (pembeli).
+// Pembeli tidak pernah bisa "naik" jadi admin lewat aplikasi.
+// ─────────────────────────────────────────────────────────────
+
+/// Akun pengelola konten. Dibuat lewat `npm run admin:create`, tidak ada pendaftaran publik.
+model Admin {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  /// Format: scrypt$<salt>$<hash> — lihat src/lib/admin/password.ts
+  passwordHash   String
+  /// Proteksi tebak-tebakan password
+  failedLogins   Int            @default(0)
+  lockedUntil    DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime       @default(now())
+  sessions       AdminSession[]
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  adminId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────
+// KONTEN BELAJAR
+// ─────────────────────────────────────────────────────────────
+
+/// Satu modul = kumpulan lesson untuk satu bahasa & level (mis. Jepang · N5 · "Hiragana dasar").
+model Module {
+  id          String   @id @default(cuid())
+  /// Kode bahasa: en | ja | zh | de | ko
+  language    String
+  /// Level bebas sesuai standar bahasanya: A1, N5, HSK 1, TOPIK I, …
+  level       String
+  title       String
+  description String?
+  /// Urutan tampil dalam satu bahasa (kecil → besar)
+  order       Int      @default(0)
+  /// Draft tidak terlihat oleh pembeli
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lessons     Lesson[]
+
+  @@index([language, order])
+}
+
+model Lesson {
+  id              String   @id @default(cuid())
+  moduleId        String
+  title           String
+  /// Isi materi dalam Markdown
+  content         String
+  /// Opsional: link YouTube
+  videoUrl        String?
+  durationMinutes Int?
+  order           Int      @default(0)
+  published       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  module          Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, order])
+}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, ShieldCheck } from "lucide-react";
 import { plans, type PlanId } from "@/data/landing";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Container, SectionHeading } from "@/components/ui/section";
 
 const options: { id: PlanId; label: string }[] = [
@@ -74,10 +74,9 @@ export function Pricing() {
             ))}
           </ul>
 
-          {/* TODO: arahkan ke halaman order / checkout saat sudah ada */}
-          <Button size="lg" className="mt-8 w-full">
+          <ButtonLink href={`/checkout?plan=${plan}`} size="lg" className="mt-8 w-full">
             {current.cta}
-          </Button>
+          </ButtonLink>
 
           <p className="mt-4 flex items-center justify-center gap-2 text-body-sm text-muted">
             <ShieldCheck className="size-4" aria-hidden /> Pembayaran aman · akses dikirim via email
